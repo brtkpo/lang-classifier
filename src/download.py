@@ -16,9 +16,13 @@ def download_and_load_gpt2(model_size, models_dir):
     base_url = "https://openaipublic.blob.core.windows.net/gpt-2/models"
     backup_base_url = "https://f001.backblazeb2.com/file/LLMs-from-scratch/gpt2"
     filenames = [
-        "checkpoint", "encoder.json", "hparams.json",
-        "model.ckpt.data-00000-of-00001", "model.ckpt.index",
-        "model.ckpt.meta", "vocab.bpe"
+        "checkpoint",
+        "encoder.json",
+        "hparams.json",
+        "model.ckpt.data-00000-of-00001",
+        "model.ckpt.index",
+        "model.ckpt.meta",
+        "vocab.bpe",
     ]
 
     os.makedirs(model_dir, exist_ok=True)
@@ -29,7 +33,9 @@ def download_and_load_gpt2(model_size, models_dir):
         download_file(file_url, file_path, backup_url)
 
     tf_ckpt_path = tf.train.latest_checkpoint(model_dir)
-    settings = json.load(open(os.path.join(model_dir, "hparams.json"), "r", encoding="utf-8"))
+    settings = json.load(
+        open(os.path.join(model_dir, "hparams.json"), "r", encoding="utf-8")
+    )
     params = load_gpt2_params_from_tf_ckpt(tf_ckpt_path, settings)
 
     return settings, params
@@ -44,12 +50,17 @@ def download_file(url, destination, backup_url=None):
                 file_size_local = os.path.getsize(destination)
                 if file_size == file_size_local:
                     print(f"File already exists and is up-to-date: {destination}")
-                    return True  
+                    return True
 
-            block_size = 1024  
+            block_size = 1024
 
             progress_bar_description = os.path.basename(download_url)
-            with tqdm(total=file_size, unit="iB", unit_scale=True, desc=progress_bar_description) as progress_bar:
+            with tqdm(
+                total=file_size,
+                unit="iB",
+                unit_scale=True,
+                desc=progress_bar_description,
+            ) as progress_bar:
                 with open(destination, "wb") as file:
                     while True:
                         chunk = response.read(block_size)
@@ -117,7 +128,7 @@ def load_gpt2_params_from_tf_ckpt(ckpt_path, settings):
     for name, _ in tf.train.list_variables(ckpt_path):
         variable_array = np.squeeze(tf.train.load_variable(ckpt_path, name))
 
-        variable_name_parts = name.split("/")[1:] 
+        variable_name_parts = name.split("/")[1:]
 
         target_dict = params
         if variable_name_parts[0].startswith("h"):

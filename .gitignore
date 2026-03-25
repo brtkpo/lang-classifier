@@ -10,3 +10,6 @@ wheels/
 .venv
 
 gpt2/
+*.pth
+
+.ruff_cache

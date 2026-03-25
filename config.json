@@ -1,0 +1,25 @@
+{
+  "meta": {
+    "mode": "evaluate",
+    "weights_path": "language_classifier.pth",
+    "data_dir": "data"
+  },
+  "model": {
+    "model_size": "124M",
+    "vocab_size": 50257,
+    "context_length": 1024,
+    "drop_rate": 0.0,
+    "qkv_bias": true,
+    "emb_dim": 768,
+    "n_layers": 12,
+    "n_heads": 12,
+    "num_classes": 20,
+    "max_length": 128
+  },
+  "training": {
+    "batch_size": 64,
+    "epochs": 1,
+    "lr": 0.00005,
+    "weight_decay": 0.1
+  }
+}
