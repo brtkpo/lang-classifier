@@ -1,13 +1,39 @@
 import torch
 import time
+import tiktoken
 from tqdm.auto import tqdm
 from torch.utils.data import DataLoader
 
 from .dataset import LanguageDataset
 from .model import setup_model
+from .config import Config
 
 
-def calc_accuracy_loader(data_loader, model, device, num_batches=None):
+def calc_accuracy_loader(
+    data_loader: DataLoader,
+    model: torch.nn.Module,
+    device: torch.device,
+    num_batches: int | None = None,
+) -> float:
+    """
+    Calculate the accuracy of the model over a data loader.
+
+    Parameters
+    ----------
+    data_loader : DataLoader
+        The PyTorch DataLoader providing input and target batches.
+    model : torch.nn.Module
+        The neural network model being evaluated.
+    device : torch.device
+        The device (CPU or CUDA) to perform the calculations on.
+    num_batches : int | None, default=None
+        Maximum number of batches to evaluate. If None, evaluates the whole loader.
+
+    Returns
+    -------
+    float
+        The accuracy as a fraction (between 0.0 and 1.0).
+    """
     model.eval()
     correct_predictions, num_examples = 0, 0
     num_batches = (
@@ -27,13 +53,66 @@ def calc_accuracy_loader(data_loader, model, device, num_batches=None):
     return correct_predictions / num_examples
 
 
-def calc_loss_batch(input_batch, target_batch, model, device):
+def calc_loss_batch(
+    input_batch: torch.Tensor,
+    target_batch: torch.Tensor,
+    model: torch.nn.Module,
+    device: torch.device,
+) -> torch.Tensor:
+    """
+    Calculate the Cross-Entropy loss for a single batch.
+
+    Parameters
+    ----------
+    input_batch : torch.Tensor
+        Batch of token IDs.
+    target_batch : torch.Tensor
+        Batch of target language labels.
+    model : torch.nn.Module
+        The neural network model.
+    device : torch.device
+        The device (CPU or CUDA).
+
+    Returns
+    -------
+    torch.Tensor
+        A scalar tensor containing the computed loss.
+    """
     input_batch, target_batch = input_batch.to(device), target_batch.to(device)
     logits = model(input_batch)[:, -1, :]
     return torch.nn.functional.cross_entropy(logits, target_batch)
 
 
-def train_classifier(model, train_loader, val_loader, optimizer, device, num_epochs):
+def train_classifier(
+    model: torch.nn.Module,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    optimizer: torch.optim.Optimizer,
+    device: torch.device,
+    num_epochs: int,
+) -> None:
+    """
+    Train the model for a specified number of epochs.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The language classification model to be trained.
+    train_loader : DataLoader
+        DataLoader for the training dataset.
+    val_loader : DataLoader
+        DataLoader for the validation dataset (used for end-of-epoch checks).
+    optimizer : torch.optim.Optimizer
+        The optimizer used to update model weights.
+    device : torch.device
+        The device (CPU or CUDA) for training.
+    num_epochs : int
+        The total number of training epochs.
+
+    Returns
+    -------
+    None
+    """
     for epoch in range(num_epochs):
         model.train()
         loop = tqdm(
@@ -57,7 +136,27 @@ def train_classifier(model, train_loader, val_loader, optimizer, device, num_epo
         print(f"Train Acc: {train_acc * 100:.2f}% | Val Acc: {val_acc * 100:.2f}%\n")
 
 
-def run_training(cfg, device, tokenizer):
+def run_training(cfg: Config, device: torch.device, tokenizer: tiktoken.Encoding) -> None:
+    """
+    Initialize datasets and orchestrate the full training process.
+
+    This function sets up the data loaders for training and validation,
+    initializes the model and optimizer, runs the training loop, and saves
+    the resulting model weights to the disk.
+
+    Parameters
+    ----------
+    cfg : Config
+        The main configuration object containing model and training settings.
+    device : torch.device
+        The device (CPU or CUDA) to train on.
+    tokenizer : tiktoken.Encoding
+        The BPE tokenizer used to encode the datasets.
+
+    Returns
+    -------
+    None
+    """
     print("Preparing datasets...")
     train_dataset = LanguageDataset(
         "train", tokenizer, max_length=cfg.model.max_length, cache_dir=cfg.meta.data_dir

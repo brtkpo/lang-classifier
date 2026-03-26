@@ -1,4 +1,5 @@
 import torch
+import tiktoken
 from torch.utils.data import Dataset
 from datasets import load_dataset
 
@@ -29,16 +30,47 @@ ID2LABEL = {i: label for i, label in enumerate(LABELS)}
 
 
 class LanguageDataset(Dataset):
+    """
+    A PyTorch Dataset for loading and processing the 'papluca/language-identification' dataset.
+
+    Parameters
+    ----------
+    split : str
+        The dataset split to load (e.g., "train", "validation", "test").
+    tokenizer : tiktoken.Encoding
+        The tokenizer used to encode the text samples into token IDs.
+    max_length : int, default=128
+        The maximum sequence length. Sequences longer than this will be truncated,
+        and sequences shorter will be padded.
+    pad_token_id : int, default=50256
+        The token ID used to pad sequences to `max_length`.
+    cache_dir : str, default="data"
+        The directory where the Hugging Face dataset will be cached.
+    """
+    
     def __init__(
-        self, split, tokenizer, max_length=128, pad_token_id=50256, cache_dir="data"
-    ):
+        self,
+        split: str,
+        tokenizer: tiktoken.Encoding,
+        max_length: int = 128,
+        pad_token_id: int = 50256,
+        cache_dir: str = "data",
+    ) -> None:
         dataset = load_dataset("papluca/language-identification", cache_dir=cache_dir)
         self.data = dataset[split]
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.pad_token_id = pad_token_id
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        Get the total number of samples in the dataset split.
+
+        Returns
+        -------
+        int
+            The total number of text samples.
+        """
         return len(self.data)
 
     def __getitem__(self, idx):

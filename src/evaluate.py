@@ -1,11 +1,35 @@
+import torch
+import tiktoken
 from torch.utils.data import DataLoader
 
+from .config import Config
 from .dataset import LanguageDataset
 from .model import setup_model
 from .train import calc_accuracy_loader
 
 
-def run_evaluation(cfg, device, tokenizer):
+def run_evaluation(
+    cfg: Config, device: torch.device, tokenizer: tiktoken.Encoding
+) -> None:
+    """
+    Evaluate the trained GPT-2 language classifier on the test dataset.
+
+    This function prepares the test data loader, loads the pre-trained model 
+    weights from the disk, and calculates the overall accuracy of the model.
+
+    Parameters
+    ----------
+    cfg : Config
+        The main configuration object containing meta paths and training settings.
+    device : torch.device
+        The device (CPU or CUDA) on which to perform computation.
+    tokenizer : tiktoken.Encoding
+        The BPE tokenizer used to encode the text dataset.
+
+    Returns
+    -------
+    None
+    """
     print("Preparing test dataset for evaluation...")
     test_dataset = LanguageDataset(
         "test", tokenizer, max_length=cfg.model.max_length, cache_dir=cfg.meta.data_dir

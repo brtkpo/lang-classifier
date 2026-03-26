@@ -1,11 +1,42 @@
 import torch
+import tiktoken
+
 from .dataset import ID2LABEL
 from src.model import setup_model
+from src.config import Config
 
 
 def predict_language(
-    text, model, tokenizer, device, max_length=128, pad_token_id=50256
-):
+    text: str, 
+    model: torch.nn.Module, 
+    tokenizer: tiktoken.Encoding, 
+    device: torch.device, 
+    max_length: int = 128, 
+    pad_token_id: int = 50256
+) -> str:
+    """
+    Predict the language of a given text using the trained GPT-2 model.
+
+    Parameters
+    ----------
+    text : str
+        The input text to classify.
+    model : torch.nn.Module
+        The trained GPT-2 classification model.
+    tokenizer : tiktoken.Encoding
+        The BPE tokenizer used to encode the input text.
+    device : torch.device
+        The device (CPU or CUDA) on which to perform computation.
+    max_length : int, default=128
+        The maximum sequence length. Inputs longer than this will be truncated.
+    pad_token_id : int, default=50256
+        The token ID used for padding sequences to `max_length`.
+
+    Returns
+    -------
+    str
+        The predicted language label.
+    """
     model.eval()
 
     input_ids = tokenizer.encode(text, allowed_special={"<|endoftext|>"})
@@ -21,7 +52,9 @@ def predict_language(
     return ID2LABEL[predicted_label_id]
 
 
-def run_inference(cfg, device, tokenizer):
+def run_inference(
+    cfg: Config, device: torch.device, tokenizer: tiktoken.Encoding
+) -> None:
     try:
         model = setup_model(cfg, device, load_weights=True)
     except FileNotFoundError:

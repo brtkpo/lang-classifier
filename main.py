@@ -15,6 +15,32 @@ from src.evaluate import run_evaluation
 
 
 def main():
+    """
+    Main entry point for the GPT-2 Language Classifier workflow.
+
+    This script orchestrates the full pipeline: training, standalone evaluation, 
+    and interactive prediction, depending on the provided JSON configuration.
+
+    Parameters
+    ----------
+    None
+
+    Behavior
+    --------
+    - If `mode` in configuration is "train", trains the GPT-2 classifier model.
+    - If `mode` is "evaluate" or after training, evaluates the model on the test dataset.
+    - If `mode` is "predict", launches an interactive CLI to classify custom text.
+
+    Notes
+    -----
+    Device selection (CPU or CUDA) is handled automatically.
+    TensorFlow warnings are suppressed by default via environment variables.
+    The script uses the 'tiktoken' library for accurate GPT-2 BPE tokenization.
+
+    Example
+    -------
+    python main.py --config config.json
+    """
     parser = argparse.ArgumentParser(description="GPT-2 Language Classifier")
     parser.add_argument(
         "--config", "-c", type=str, required=True, help="Path to the configuration file"

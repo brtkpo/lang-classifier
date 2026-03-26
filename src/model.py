@@ -3,11 +3,33 @@ import tiktoken
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from src.download import download_and_load_gpt2
+from typing import Any
 
+from .download import download_and_load_gpt2
+from .config import Config
 
 class GPTDatasetV1(Dataset):
-    def __init__(self, txt, tokenizer, max_length, stride):
+    """
+    A PyTorch Dataset for basic text generation tasks using GPT.
+
+    Parameters
+    ----------
+    txt : str
+        The full text data to be processed.
+    tokenizer : tiktoken.Encoding
+        The BPE tokenizer used to encode the text.
+    max_length : int
+        The sequence length (context window) for the model.
+    stride : int
+        The step size for moving the window across the text.
+    """
+    def __init__(
+        self, 
+        txt: str, 
+        tokenizer: tiktoken.Encoding, 
+        max_length: int, 
+        stride: int
+    ) -> None:
         self.input_ids = []
         self.target_ids = []
 
@@ -19,22 +41,47 @@ class GPTDatasetV1(Dataset):
             self.input_ids.append(torch.tensor(input_chunk))
             self.target_ids.append(torch.tensor(target_chunk))
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.input_ids)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         return self.input_ids[idx], self.target_ids[idx]
 
 
 def create_dataloader_v1(
-    txt,
-    batch_size=4,
-    max_length=256,
-    stride=128,
-    shuffle=True,
-    drop_last=True,
-    num_workers=0,
-):
+    txt: str,
+    batch_size: int = 4,
+    max_length: int = 256,
+    stride: int = 128,
+    shuffle: bool = True,
+    drop_last: bool = True,
+    num_workers: int = 0,
+) -> DataLoader:
+    """
+    Create a PyTorch DataLoader for the GPTDatasetV1.
+
+    Parameters
+    ----------
+    txt : str
+        The full text data.
+    batch_size : int, default=4
+        Number of samples per batch.
+    max_length : int, default=256
+        Maximum sequence length.
+    stride : int, default=128
+        Stride size for the sliding window.
+    shuffle : bool, default=True
+        Whether to shuffle the dataset.
+    drop_last : bool, default=True
+        Whether to drop the last incomplete batch.
+    num_workers : int, default=0
+        Number of subprocesses for data loading.
+
+    Returns
+    -------
+    DataLoader
+        The configured PyTorch DataLoader.
+    """
     tokenizer = tiktoken.get_encoding("gpt2")
 
     dataset = GPTDatasetV1(txt, tokenizer, max_length, stride)
@@ -51,7 +98,33 @@ def create_dataloader_v1(
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_in, d_out, context_length, dropout, num_heads, qkv_bias=False):
+    """
+    Multi-Head Causal Attention mechanism.
+
+    Parameters
+    ----------
+    d_in : int
+        Input dimensionality.
+    d_out : int
+        Output dimensionality.
+    context_length : int
+        Maximum sequence length (for the causal mask).
+    dropout : float
+        Dropout probability.
+    num_heads : int
+        Number of attention heads.
+    qkv_bias : bool, default=False
+        Whether to use bias in the Q, K, V linear projections.
+    """
+    def __init__(
+        self, 
+        d_in: int, 
+        d_out: int, 
+        context_length: int, 
+        dropout: float, 
+        num_heads: int, 
+        qkv_bias: bool = False
+    ) -> None:
         super().__init__()
         assert d_out % num_heads == 0, "d_out must be divisible by n_heads"
 
@@ -68,7 +141,7 @@ class MultiHeadAttention(nn.Module):
             "mask", torch.triu(torch.ones(context_length, context_length), diagonal=1)
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         b, num_tokens, d_in = x.shape
 
         keys = self.W_key(x)
@@ -101,32 +174,37 @@ class MultiHeadAttention(nn.Module):
 
 
 class LayerNorm(nn.Module):
-    def __init__(self, emb_dim):
+    """
+    Layer Normalization module.
+
+    Parameters
+    ----------
+    emb_dim : int
+        The dimensionality of the embeddings to be normalized.
+    """
+    def __init__(self, emb_dim: int) -> None:
         super().__init__()
         self.eps = 1e-5
         self.scale = nn.Parameter(torch.ones(emb_dim))
         self.shift = nn.Parameter(torch.zeros(emb_dim))
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         mean = x.mean(dim=-1, keepdim=True)
         var = x.var(dim=-1, keepdim=True, unbiased=False)
         norm_x = (x - mean) / torch.sqrt(var + self.eps)
         return self.scale * norm_x + self.shift
 
 
-# class GELU(nn.Module):
-#    def __init__(self):
-#        super().__init__()
-#
-#    def forward(self, x):
-#        return 0.5 * x * (1 + torch.tanh(
-#            torch.sqrt(torch.tensor(2.0 / torch.pi)) *
-#            (x + 0.044715 * torch.pow(x, 3))
-#        ))
-
-
 class FeedForward(nn.Module):
-    def __init__(self, cfg):
+    """
+    Position-wise Feed Forward Network used in the Transformer block.
+
+    Parameters
+    ----------
+    cfg : dict[str, Any]
+        Configuration dictionary containing 'emb_dim'.
+    """
+    def __init__(self, cfg: dict[str, Any]) -> None:
         super().__init__()
         self.layers = nn.Sequential(
             nn.Linear(cfg["emb_dim"], 4 * cfg["emb_dim"]),
@@ -139,7 +217,15 @@ class FeedForward(nn.Module):
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, cfg):
+    """
+    A single Transformer Block comprising Multi-Head Attention and a Feed-Forward Network.
+
+    Parameters
+    ----------
+    cfg : dict[str, Any]
+        Configuration dictionary containing architectural hyperparameters.
+    """
+    def __init__(self, cfg: dict[str, Any]) -> None:
         super().__init__()
         self.att = MultiHeadAttention(
             d_in=cfg["emb_dim"],
@@ -154,7 +240,7 @@ class TransformerBlock(nn.Module):
         self.norm2 = nn.LayerNorm(cfg["emb_dim"])
         self.drop_resid = nn.Dropout(cfg["drop_rate"])
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         shortcut = x
         x = self.norm1(x)
         x = self.att(x)
@@ -171,7 +257,15 @@ class TransformerBlock(nn.Module):
 
 
 class GPTModel(nn.Module):
-    def __init__(self, cfg):
+    """
+    The main GPT-2 Model architecture.
+
+    Parameters
+    ----------
+    cfg : dict[str, Any]
+        Configuration dictionary specifying the model's dimensions and hyperparameters.
+    """
+    def __init__(self, cfg: dict[str, Any]) -> None:
         super().__init__()
         self.tok_emb = nn.Embedding(cfg["vocab_size"], cfg["emb_dim"])
         self.pos_emb = nn.Embedding(cfg["context_length"], cfg["emb_dim"])
@@ -184,7 +278,7 @@ class GPTModel(nn.Module):
         self.final_norm = nn.LayerNorm(cfg["emb_dim"])
         self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], bias=False)
 
-    def forward(self, in_idx):
+    def forward(self, in_idx: torch.Tensor) -> torch.Tensor:
         batch_size, seq_len = in_idx.shape
         tok_embeds = self.tok_emb(in_idx)
         pos_embeds = self.pos_emb(torch.arange(seq_len, device=in_idx.device))
@@ -196,7 +290,26 @@ class GPTModel(nn.Module):
         return logits
 
 
-def generate_text_simple(model, idx, max_new_tokens, context_size):
+def generate_text_simple(model: nn.Module, idx: torch.Tensor, max_new_tokens: int, context_size: int) -> torch.Tensor:
+    """
+    Greedy text generation using the trained model.
+
+    Parameters
+    ----------
+    model : nn.Module
+        The trained language model.
+    idx : torch.Tensor
+        The current sequence of token IDs.
+    max_new_tokens : int
+        The number of new tokens to generate.
+    context_size : int
+        The maximum context size the model can handle.
+
+    Returns
+    -------
+    torch.Tensor
+        The expanded sequence of token IDs including the newly generated tokens.
+    """
     for _ in range(max_new_tokens):
         idx_cond = idx[:, -context_size:]
 
@@ -212,13 +325,47 @@ def generate_text_simple(model, idx, max_new_tokens, context_size):
     return idx
 
 
-def assign(left, right):
+def assign(left: nn.Parameter | torch.Tensor, right: np.ndarray | torch.Tensor) -> nn.Parameter:
+    """
+    Helper function to assign pre-trained weights to a PyTorch parameter.
+
+    Parameters
+    ----------
+    left : nn.Parameter | torch.Tensor
+        The target PyTorch parameter.
+    right : np.ndarray | torch.Tensor
+        The source weights to assign.
+
+    Returns
+    -------
+    nn.Parameter
+        The updated parameter.
+
+    Raises
+    ------
+    ValueError
+        If the shape of the target and source do not match.
+    """
     if left.shape != right.shape:
         raise ValueError(f"Shape mismatch. Left: {left.shape}, Right: {right.shape}")
     return torch.nn.Parameter(torch.tensor(right))
 
 
-def load_weights_into_gpt(gpt, params):
+def load_weights_into_gpt(gpt: GPTModel, params: dict[str, Any]) -> None:
+    """
+    Load pre-trained OpenAI weights into the GPT model structure.
+
+    Parameters
+    ----------
+    gpt : GPTModel
+        The instantiated GPT model.
+    params : dict[str, Any]
+        The dictionary containing extracted TensorFlow weights.
+
+    Returns
+    -------
+    None
+    """
     gpt.pos_emb.weight = assign(gpt.pos_emb.weight, params["wpe"])
     gpt.tok_emb.weight = assign(gpt.tok_emb.weight, params["wte"])
 
@@ -290,18 +437,67 @@ def load_weights_into_gpt(gpt, params):
     gpt.out_head.weight = assign(gpt.out_head.weight, params["wte"])
 
 
-def text_to_token_ids(text, tokenizer):
+def text_to_token_ids(text: str, tokenizer: tiktoken.Encoding) -> torch.Tensor:
+    """
+    Encode text into token IDs.
+
+    Parameters
+    ----------
+    text : str
+        The input string.
+    tokenizer : tiktoken.Encoding
+        The BPE tokenizer.
+
+    Returns
+    -------
+    torch.Tensor
+        A 2D tensor containing the encoded token IDs.
+    """
     encoded = tokenizer.encode(text, allowed_special={"<|endoftext|>"})
     encoded_tensor = torch.tensor(encoded).unsqueeze(0)
     return encoded_tensor
 
 
-def token_ids_to_text(token_ids, tokenizer):
+def token_ids_to_text(token_ids: torch.Tensor, tokenizer: tiktoken.Encoding) -> str:
+    """
+    Decode token IDs back into text.
+
+    Parameters
+    ----------
+    token_ids : torch.Tensor
+        The tensor containing token IDs.
+    tokenizer : tiktoken.Encoding
+        The BPE tokenizer.
+
+    Returns
+    -------
+    str
+        The decoded string.
+    """
     flat = token_ids.squeeze(0)
     return tokenizer.decode(flat.tolist())
 
 
-def setup_model(cfg, device, load_weights=False):
+def setup_model(cfg: Config, device: torch.device, load_weights: bool = False) -> GPTModel:
+    """
+    Initialize the GPT-2 model, optionally download pre-trained weights,
+    and adapt the classification head for fine-tuning.
+
+    Parameters
+    ----------
+    cfg : Config
+        The configuration object with model hyperparameters.
+    device : torch.device
+        The device (CPU or CUDA) to map the model to.
+    load_weights : bool, default=False
+        If True, loads fine-tuned local weights. If False, downloads and loads
+        original GPT-2 pre-trained weights from the internet.
+
+    Returns
+    -------
+    GPTModel
+        The ready-to-use GPT model.
+    """
     model_config_dict = {
         "vocab_size": cfg.model.vocab_size,
         "context_length": cfg.model.context_length,
