@@ -6,6 +6,7 @@ from .config import Config
 from .dataset import LanguageDataset
 from .model import setup_model
 from .train import calc_accuracy_loader
+from .load_model import load_model
 
 
 def run_evaluation(
@@ -40,9 +41,12 @@ def run_evaluation(
 
     print(f"Loading trained weights from {cfg.meta.weights_path}...")
     try:
+        _ = load_model(cfg)
+        
         model = setup_model(cfg, device, load_weights=True)
-    except FileNotFoundError:
-        print(f"Error: {cfg.meta.weights_path} not found. Run training first.")
+    except Exception as e:
+        print(f"\nError loading model: {e}")
+        print("Please check Hugging Face repository or run training first.")
         return
 
     print("\nStarting Standalone Evaluation on Test Set...")

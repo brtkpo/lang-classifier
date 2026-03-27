@@ -4,6 +4,7 @@ import tiktoken
 from .dataset import ID2LABEL
 from src.model import setup_model
 from src.config import Config
+from .load_model import load_model
 
 
 def predict_language(
@@ -56,9 +57,12 @@ def run_inference(
     cfg: Config, device: torch.device, tokenizer: tiktoken.Encoding
 ) -> None:
     try:
+        _ = load_model(cfg)
+        
         model = setup_model(cfg, device, load_weights=True)
-    except FileNotFoundError:
-        print(f"Error: {cfg.meta.weights_path} not found. Run training first.")
+    except Exception as e:
+        print(f"\nError loading model: {e}")
+        print("Please check Hugging Face repository or run training first.")
         return
 
     print("\n--- Language Identification CLI (type '/exit' to quit) ---")

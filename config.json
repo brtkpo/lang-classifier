@@ -1,6 +1,6 @@
 {
   "meta": {
-    "mode": "evaluate",
+    "mode": "predict",
     "weights_path": "language_classifier.pth",
     "data_dir": "data"
   },
