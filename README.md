@@ -1,6 +1,6 @@
 # Language Classifier
 
-Deep learning model for text language identification fine-tuned on the GPT-2 architecture. 
+Deep learning model for text language identification based on the GPT-2 architecture. 
 The pipeline automatically downloads pre-trained GPT-2 weights from OpenAI, adapts the final classification head, and fine-tunes the network to predict the language of an input text out of 20 supported languages.
 
 ---
