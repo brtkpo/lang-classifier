@@ -80,6 +80,12 @@ Controls the training process.
 
 ---
 
+## Results & Performance
+
+Using the default configuration, the model achieves a 97.60% accuracy on the test set after training for 1 epoch. 
+
+---
+
 ## Model Weights
 
 The trained model weights (`language_classifier.pth`) are not included in the repository.

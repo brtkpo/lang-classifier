@@ -1,6 +1,6 @@
 {
   "meta": {
-    "mode": "predict",
+    "mode": "train",
     "weights_path": "language_classifier.pth",
     "data_dir": "data"
   },
